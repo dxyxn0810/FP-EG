@@ -41,16 +41,28 @@ the figures.
 
 ## Experiments
 
-| Folder | Game | Baseline | Script | Output |
-|---|---|---|---|---|
-| `Cooperative` | Cooperative game of Jordan & Kamgarpour (2026), Sec. 5 | Log-barrier gradient ascent, `mu = 0.001` | `coop_game_trajectory.py` | `results_trajectory/trajectory_compare.{png,pdf}` |
-| `Routing` | Network routing game (Tatarenko 2017, Ex. 2.2), as in Jordan & Kamgarpour (2026), Sec. 5 | Log-barrier gradient ascent, `mu = 0.05` | `routing_nash_gap.py` | `results_nash_gap/nash_gap_compare.{png,pdf}` |
-| `Shared_Resource` | Pairwise-overhead shared-resource game (Sec. 3.4 / App. C.1), `m` players, 50 random instances | — | `fpeg_scaling.py` | `results_scaling/fpeg_scaling.{png,pdf}` |
-| `Shared_Resource` | Same, `m = 50` | — | `fpeg_eta.py` | `results_eta/fpeg_eta.{png,pdf}` |
+### Cooperative game
 
-Default stepsizes are `eta = 0.1` (Cooperative), `eta = 0.025 < 1/L ≈ 0.027` (Routing), and
-`eta = 0.9 < 1/L = 1` (Shared-Resource scaling). An iteration counts as converged when
-`||x_{t+1} - x_t||_inf <= tol`.
+The two-player cooperative game of Jordan & Kamgarpour (2026), Sec. 5.
+`coop_game_trajectory.py` plots the trajectories of log-barrier gradient ascent (`mu = 0.001`)
+and FP-EG (`eta = 0.1`) from several initial points.
+
+### Routing game
+
+The five-player network routing game of Tatarenko (2017), Ex. 2.2, as used in
+Jordan & Kamgarpour (2026), Sec. 5. `routing_nash_gap.py` plots the Nash gap over iterations
+for log-barrier gradient ascent (`mu = 0.05`) and FP-EG (`eta = 0.025 < 1/L ≈ 0.027`).
+
+### Shared-resource game
+
+The pairwise-overhead shared-resource game with `m` players (Sec. 3.4 / App. C.1). Each
+setting is run on 50 random instances.
+
+- `fpeg_scaling.py` measures how the number of iterations, the number of fallback steps and the
+  wall-clock time of FP-EG (`eta = 0.9 < 1/L = 1`) grow with the number of players `m`.
+- `fpeg_eta.py` measures how the same quantities depend on the stepsize `eta`, for `m = 50`.
+
+In all experiments, FP-EG counts as converged once `||x_{t+1} - x_t||_inf <= tol`.
 
 ## Requirements
 
