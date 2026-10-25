@@ -4,8 +4,8 @@ players m: iterations until convergence, number of fallback (unilateral) steps, 
 time, as median and IQR band over random instances (v drawn with g(v) > B), with each run
 shown as a dot.
 
-Convergence: ||x_{t+1} - x_t||_inf <= tol (same rule as run_fp_eg). Wall-clock time counts
-only the FP-EG steps, not the diagnostics.
+Convergence: first t with Gap(x_t) <= eps (same rule as run_fp_eg). Wall-clock time counts
+only the FP-EG steps, not the diagnostics (the Nash-gap checks included).
 
 Usage:
     python fpeg_scaling.py
@@ -23,32 +23,36 @@ import matplotlib.ticker as ticker
 from shared_resource_game import SharedResourceGame, fp_eg_step
 
 
-def run(game, x0, eta, T, tol):
-    """FP-EG from x0 until convergence; returns (iterations, fallbacks, seconds, final gap)."""
+def run(game, x0, eta, T, eps):
+    """FP-EG from x0 until the first t with Gap(x_t) <= eps (at most T iterations);
+    returns (iterations, fallbacks, seconds, final gap). The gap check is not timed."""
     x, n_fallback, elapsed = x0.copy(), 0, 0.0
-    for t in range(1, T + 1):
+    for t in range(T + 1):
+        gap = game.gap(x)
+        if gap <= eps or t == T:
+            return t, n_fallback, elapsed, gap
         start = time.perf_counter()
-        x_next, _, _, full = fp_eg_step(game, x, eta)
+        x, _, _, full = fp_eg_step(game, x, eta)
         elapsed += time.perf_counter() - start
         n_fallback += not full
-        if np.abs(x_next - x).max() <= tol:
-            return t, n_fallback, elapsed, game.gap(x_next)
-        x = x_next
-    return T, n_fallback, elapsed, game.gap(x)
 
 
-def plot_stats(xs, stats, xlabel, title, path_stem, logx, logy=(False, False, True),
-               xticks=None, logy_subs=(1.0,)):
+def plot_stats(xs, stats, xlabel, path_stem, logx, logy=(True, True, True),
+               xticks=None, logy_subs=None, panels=(0, 1, 2)):
     """1x3 panels (iterations, fallbacks, time): median, IQR band and individual runs vs xs.
     stats[x] is an array (runs, 3) of iterations, fallbacks, time in ms; logy per panel.
-    xticks: tick positions on a linear x axis; logy_subs: labelled log ticks per decade."""
+    xticks: tick positions on a linear x axis;
+    logy_subs: {panel index: labelled log ticks per decade, e.g. (1, 2, 5)};
+    panels: which of the three panels to draw, e.g. (0,) for iterations only."""
     xs = np.array(xs)
-    panels = [("Iterations until convergence", "iterations"),
+    titles = [("Iterations until convergence", "iterations"),
               ("Fallback (unilateral) steps", "fallback steps"),
               ("Wall-clock time", "time [ms]")]
     col = "#d95f02"
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4.2))
-    for k, (ax, (panel, ylabel)) in enumerate(zip(axes, panels)):
+    fig, axes = plt.subplots(1, len(panels), figsize=(5 * len(panels), 4.2), squeeze=False)
+    axes = axes[0]
+    for k, ax in zip(panels, axes):
+        panel, ylabel = titles[k]
         vals = [stats[x][:, k] for x in xs]
         q1, med, q3 = (np.array([np.percentile(v, q) for v in vals]) for q in (25, 50, 75))
         rng = np.random.default_rng(0)
@@ -67,8 +71,8 @@ def plot_stats(xs, stats, xlabel, title, path_stem, logx, logy=(False, False, Tr
             ax.set_xticks(xticks)
         if logy[k]:
             ax.set_yscale("log")
-            if logy_subs != (1.0,):              # e.g. (1, 2, 5): label 1, 2, 5 x 10^k
-                ax.yaxis.set_major_locator(ticker.LogLocator(subs=logy_subs))
+            if logy_subs and k in logy_subs:     # e.g. (1, 2, 5): label 1, 2, 5 x 10^k
+                ax.yaxis.set_major_locator(ticker.LogLocator(subs=logy_subs[k]))
                 ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, _: f"{y:g}"))
                 ax.yaxis.set_minor_formatter(ticker.NullFormatter())
         ax.set_xlabel(xlabel)
@@ -76,7 +80,6 @@ def plot_stats(xs, stats, xlabel, title, path_stem, logx, logy=(False, False, Tr
         ax.set_title(panel)
         ax.grid(alpha=0.25, linewidth=0.6)
     axes[0].legend(fontsize=9, frameon=False, loc="upper left")
-    fig.suptitle(title, fontsize=11)
     fig.tight_layout()
     for ext in ("png", "pdf"):                    # pdf is vector, for the paper
         path = f"{path_stem}.{ext}"
@@ -87,10 +90,10 @@ def plot_stats(xs, stats, xlabel, title, path_stem, logx, logy=(False, False, Tr
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--ms", type=int, nargs="+", default=[2, 5, 10, 20, 50, 100, 200, 500, 1000])
-    p.add_argument("--seeds", type=int, default=50, help="random instances per m")
+    p.add_argument("--seeds", type=int, default=45, help="random instances per m")
     p.add_argument("--eta", type=float, default=0.9)
     p.add_argument("--T", type=int, default=5000)
-    p.add_argument("--tol", type=float, default=1e-10)
+    p.add_argument("--eps", type=float, default=1e-6, help="Nash-gap level for convergence")
     p.add_argument("--out", type=str, default="results_scaling")
     args = p.parse_args()
 
@@ -100,7 +103,7 @@ def main():
         rows = []
         for seed in range(args.seeds):
             game = SharedResourceGame(m, seed=seed)
-            it, fb, sec, gap = run(game, np.zeros(m), args.eta, args.T, args.tol)
+            it, fb, sec, gap = run(game, np.zeros(m), args.eta, args.T, args.eps)
             if it == args.T:
                 print(f"  m={m} seed={seed}: not converged in T={args.T} (gap={gap:.1e})")
             rows.append((it, fb, 1e3 * sec))
@@ -109,9 +112,8 @@ def main():
         print(f"m={m:4d}: median iterations {med[0]:.0f}, fallbacks {med[1]:.0f}, time {med[2]:.1f} ms")
 
     plot_stats(args.ms, stats, r"number of players $m$",
-               rf"FP-EG on the shared-resource game ($\eta$={args.eta:g}, $x_0=0$, "
-               rf"{args.seeds} instances per $m$, converged: $\|x_{{t+1}}-x_t\|_\infty \leq$ {args.tol:g})",
-               os.path.join(args.out, "fpeg_scaling"), logx=True)
+               os.path.join(args.out, "fpeg_scaling"), logx=True,
+               logy_subs={0: (1.0, 2.0, 5.0), 1: (1.0, 2.0, 5.0)})
 
 
 if __name__ == "__main__":

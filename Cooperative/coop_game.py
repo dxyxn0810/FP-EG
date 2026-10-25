@@ -21,7 +21,7 @@ Two algorithms are implemented on this game:
         x_i^{t+1} = P_{X_i}[ x_i^t + gamma_t * grad_{x_i} B_i^mu(x^t) ],
         B_i^mu(x) = u_i(x) + mu * log(c(x) - alpha),
     with feasibility margin beta_t = c(x^t) - alpha and the (practical) stepsize
-        gamma_t = beta_t / 72.
+        gamma_t = 0.05 * beta_t.
 """
 
 import numpy as np
@@ -83,7 +83,7 @@ class CooperativeGame:
         return max(0.0, max(g))
 
     # reference quantities ---------------------------------------------------
-    def equilibrium_set(self, n=200001, tol=1e-10):
+    def equilibrium_set(self, n=200001, eps=1e-6):
         """Sample the constrained NE set.
 
         Ignoring the shared constraint, the best-response fixed point on [0,1]^2 is
@@ -93,7 +93,7 @@ class CooperativeGame:
         """
         s = np.linspace(self.cap, 1.0, n)
         pts = np.stack([s, self.cap / s], axis=1)
-        mask = np.array([self.gap(p) <= tol for p in pts])
+        mask = np.array([self.gap(p) <= eps for p in pts])
         return pts[mask]
 
 
@@ -129,7 +129,7 @@ def barrier_grad(game, x, mu):
 
 
 def stepsize(beta):
-    return beta / 72.0
+    return 0.05 * beta
 
 
 def lb_step(game, x, mu):

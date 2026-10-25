@@ -108,18 +108,17 @@ def fp_eg_step(game, x, eta, tol=1e-12):
     return x_next, y, z, False
 
 
-def run_fp_eg(game, x0=None, eta=0.9, T=1000, tol=1e-10):
+def run_fp_eg(game, x0=None, eta=0.9, T=1000, eps=1e-10):
     """FP-EG from a feasible x0 (default 0, which is in C) with stepsize eta < 1/L, until
-    ||x_{t+1} - x_t||_inf <= tol or T iterations. Returns the iterates x_0, ..., x_t."""
+    Gap(x_t) <= eps or T iterations. Returns the iterates x_0, ..., x_t."""
     if not eta < 1.0 / game.L:
         raise ValueError(f"eta={eta:g} violates eta < 1/L = {1 / game.L:g}")
     x = np.zeros(game.m) if x0 is None else np.array(x0, dtype=float)
     assert game.is_feasible(x), "x0 must be feasible"
     xs = [x]
     for _ in range(T):
-        x_next = fp_eg_step(game, x, eta)[0]
-        xs.append(x_next)
-        if np.abs(x_next - x).max() <= tol:
+        if game.gap(x) <= eps:
             break
-        x = x_next
+        x = fp_eg_step(game, x, eta)[0]
+        xs.append(x)
     return np.array(xs)
