@@ -51,7 +51,7 @@ def main():
     xticks = np.round(np.arange(0.0, 1.01, 0.1), 1)
     plot_stats(args.etas, stats, r"stepsize $\eta$",
                os.path.join(args.out, "fpeg_eta"), logx=False, logy=(False, False, False),
-               xticks=xticks)
+               xticks=xticks, ylims={2: (0, 8)}, ytick_steps={2: 1})
     plot_stats(args.etas, stats, r"stepsize $\eta$",          # iterations panel only
                os.path.join(args.out, "fpeg_eta_iterations"), logx=False, logy=(False, False, False),
                xticks=xticks, panels=(0,))

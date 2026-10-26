@@ -38,12 +38,13 @@ def run(game, x0, eta, T, eps):
 
 
 def plot_stats(xs, stats, xlabel, path_stem, logx, logy=(True, True, True),
-               xticks=None, logy_subs=None, panels=(0, 1, 2)):
+               xticks=None, logy_subs=None, panels=(0, 1, 2), ylims=None, ytick_steps=None):
     """1x3 panels (iterations, fallbacks, time): median, IQR band and individual runs vs xs.
     stats[x] is an array (runs, 3) of iterations, fallbacks, time in ms; logy per panel.
     xticks: tick positions on a linear x axis;
     logy_subs: {panel index: labelled log ticks per decade, e.g. (1, 2, 5)};
-    panels: which of the three panels to draw, e.g. (0,) for iterations only."""
+    panels: which of the three panels to draw, e.g. (0,) for iterations only;
+    ylims, ytick_steps: {panel index: (ymin, ymax)} and {panel index: step} for linear y axes."""
     xs = np.array(xs)
     titles = [("Iterations until convergence", "iterations"),
               ("Fallback (unilateral) steps", "fallback steps"),
@@ -75,6 +76,10 @@ def plot_stats(xs, stats, xlabel, path_stem, logx, logy=(True, True, True),
                 ax.yaxis.set_major_locator(ticker.LogLocator(subs=logy_subs[k]))
                 ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, _: f"{y:g}"))
                 ax.yaxis.set_minor_formatter(ticker.NullFormatter())
+        if ylims and k in ylims:
+            ax.set_ylim(*ylims[k])
+        if ytick_steps and k in ytick_steps:
+            ax.yaxis.set_major_locator(ticker.MultipleLocator(ytick_steps[k]))
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
         ax.set_title(panel)
